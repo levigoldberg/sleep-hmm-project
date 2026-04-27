@@ -35,7 +35,7 @@ BANDS = {
     "beta": (13, 30),    # Faster activity, often more wake-like
 }
 
-
+WELCH_SEGMENT_LENGTH = 4
 def compute_bandpower(epoch_signal, sfreq):
     """
     Compute relative EEG band power for one 30-second epoch.
@@ -47,7 +47,7 @@ def compute_bandpower(epoch_signal, sfreq):
 
         sfreq:
             Sampling frequency of the EEG signal, in Hz.
-            For Sleep-EDF EEG, this is usually 100 Hz.
+            For Sleep-EDF EEG, this is 100 Hz.
 
     Returns:
         relative_powers:
@@ -63,9 +63,13 @@ def compute_bandpower(epoch_signal, sfreq):
     # stable estimate of power across frequencies.
     #
     # nperseg=sfreq * 4 means each Welch segment is 4 seconds long.
-    # If sfreq = 100 Hz, then nperseg = 400 samples.
-    # A 4-second segment gives frequency resolution of about 0.25 Hz.
-    freqs, psd = welch(epoch_signal, fs=sfreq, nperseg=sfreq * 4)
+    # If sfreq = 100 Hz, then nperseg = 400 samples
+    # A 4-second segment gives frequency resolution of about 0.25 Hz. 
+    # We can treat WELCH_SEGMENT_LENGTH as a tunable parameter and compare 
+    # different window lengths based on downstream HMM performance
+
+
+    freqs, psd = welch(epoch_signal, fs=sfreq, nperseg=sfreq * WELCH_SEGMENT_LENGTH)
 
     # This dictionary will store the absolute power in each band first.
     band_powers = {}
@@ -81,7 +85,7 @@ def compute_bandpower(epoch_signal, sfreq):
         # Compute the area under the PSD curve within this frequency band.
         # This area represents the total power in that band.
         #
-        # np.trapz performs numerical integration using the trapezoid rule.
+        # np.trapezoid performs numerical integration using the trapezoid rule.
         band_power = np.trapezoid(psd[band_mask], freqs[band_mask])
 
         # Store the absolute band power.
@@ -99,6 +103,7 @@ def compute_bandpower(epoch_signal, sfreq):
     # This makes each feature a proportion rather than a raw power value.
     # Relative power is useful because it reduces the effect of overall signal
     # amplitude differences between recordings, subjects, or channels.
+    #TODO: 
     relative_powers = {
         f"{band}_rel": power / total_power
         for band, power in band_powers.items()
@@ -206,6 +211,7 @@ def main():
     # Saving features separately means we do not need to reload and process
     # the raw EDF file every time we train the model.
     df.to_csv("results/features_one_subject.csv", index=False)
+    print("Sampling frequency:", sfreq, "Hz")
 
 
 # This makes sure main() only runs when this file is executed directly.
