@@ -23,8 +23,8 @@ BANDS = {
     "alpha": (8, 12),  # Often associated with relaxed wakefulness
     "beta": (13, 30),  # Faster activity, often more wake-like
 }
+WELCH_SEGMENT_LENGTH = 4
 
-<<<<<<< HEAD
 # Number of hidden states in the HMM.
 # Based on modern sleep staging conventions (AASM), sleep is divided into
 # 5 stages. We use 5 hidden states to match this standard. Later, we could
@@ -44,14 +44,12 @@ F = 4
 STATE_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
 
-
 # Variance for each state and feature, used for the Gaussian emission model.
 # Currently all states share the same variance (0.02, std ~0.14), which gives
 # realistic scatter without too much noise. Later, we could use different
 # variances per state — N3 is likely tighter (always high delta) while
 # Wake may be more variable.
 TRUE_VARS = np.full((K, F), 0.02)
-
 
 
 # Transition matrix initialization.
@@ -61,12 +59,9 @@ TRUE_VARS = np.full((K, F), 0.02)
 # sleep architecture Wake→N1→N2→N3→REM, from AASM transition research).
 A_init = np.full((K, K), 1/K)
 
-=======
 
-#training constants
+# training constants
 THRESHOLD = 1e-4
 ITERATIONS = 20
 D = len(BANDS)
 K = 5
-WELCH_SEGMENT_LENGTH = 4
->>>>>>> 2ee9e5d8c062f5e407df8e5a0a559cb7c68828e9
