@@ -2,6 +2,12 @@ import mne
 import numpy as np
 import pandas as pd
 from scipy.signal import welch
+import plotly.graph_objects as go
+from visualizations import (
+    plot_feature_heatmap,
+    plot_smoothed_bandpower,
+    plot_raw_epoch_window,
+)
 
 
 # Path to one raw Sleep-EDF polysomnography file.
@@ -64,10 +70,9 @@ def compute_bandpower(epoch_signal, sfreq):
     #
     # nperseg=sfreq * 4 means each Welch segment is 4 seconds long.
     # If sfreq = 100 Hz, then nperseg = 400 samples
-    # A 4-second segment gives frequency resolution of about 0.25 Hz. 
-    # We can treat WELCH_SEGMENT_LENGTH as a tunable parameter and compare 
+    # A 4-second segment gives frequency resolution of about 0.25 Hz.
+    # We can treat WELCH_SEGMENT_LENGTH as a tunable parameter and compare
     # different window lengths based on downstream HMM performance
-
 
     freqs, psd = welch(epoch_signal, fs=sfreq, nperseg=sfreq * WELCH_SEGMENT_LENGTH)
 
@@ -103,7 +108,7 @@ def compute_bandpower(epoch_signal, sfreq):
     # This makes each feature a proportion rather than a raw power value.
     # Relative power is useful because it reduces the effect of overall signal
     # amplitude differences between recordings, subjects, or channels.
-    #TODO: 
+    # TODO:
     relative_powers = {
         f"{band}_rel": power / total_power
         for band, power in band_powers.items()
@@ -120,7 +125,7 @@ def compute_bandpower(epoch_signal, sfreq):
     return relative_powers
 
 
-def main():
+def extract_features():
     """
     Main feature extraction pipeline.
 
@@ -193,7 +198,17 @@ def main():
     # Each row is one 30-second epoch.
     # Each column is one feature.
     df = pd.DataFrame(rows)
+    plot_feature_heatmap(df, epoch_seconds=EPOCH_SECONDS, smooth_window=5)
 
+    plot_smoothed_bandpower(df, epoch_seconds=EPOCH_SECONDS, smooth_window=10)
+
+    plot_raw_epoch_window(
+        data=data,
+        sfreq=sfreq,
+        epoch_seconds=EPOCH_SECONDS,
+        start_epoch=0,
+        num_epochs_to_show=10,
+    )
     # Print the first few rows to confirm that feature extraction worked.
     print(df.head())
 
@@ -208,9 +223,89 @@ def main():
     # the raw EDF file every time we train the model.
     df.to_csv("results/features_one_subject.csv", index=False)
     print("Sampling frequency:", sfreq, "Hz")
+    return df, data, sfreq
+
+def plot_raw_epochs(data, sfreq, samples_per_epoch, num_epochs, max_epochs=20):
+    """
+    Plot the raw EEG signal over time with vertical lines showing epoch boundaries.
+
+    max_epochs controls how many 30-second epochs are shown at once.
+    Showing the full night can be visually overwhelming, so we start with a chunk.
+    """
+
+    # Only plot the first max_epochs so the graph is readable
+    samples_to_plot = min(max_epochs * samples_per_epoch, len(data))
+
+    signal_chunk = data[:samples_to_plot]
+    time_seconds = np.arange(samples_to_plot) / sfreq
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=time_seconds,
+            y=signal_chunk,
+            mode="lines",
+            name="Raw EEG"
+        )
+    )
+
+    # Add vertical lines every 30 seconds
+    for epoch_idx in range(min(max_epochs, num_epochs) + 1):
+        x = epoch_idx * EPOCH_SECONDS
+        fig.add_vline(
+            x=x,
+            line_width=1,
+            line_dash="dash"
+        )
+
+    fig.update_layout(
+        title=f"Raw EEG Signal Split into {EPOCH_SECONDS}-Second Epochs",
+        xaxis_title="Time (seconds)",
+        yaxis_title="EEG voltage",
+        hovermode="x unified",
+        width=1100,
+        height=500
+    )
+
+    fig.write_html("results/raw_epochs_interactive.html")
+    fig.show()
 
 
-# This makes sure main() only runs when this file is executed directly.
-# It will not automatically run if this file is imported into another script.
-if __name__ == "__main__":
-    main()
+def plot_bandpower_over_epochs(df):
+    """
+    Plot relative EEG band powers over time.
+
+    Each row in df is one 30-second epoch.
+    The x-axis is epoch number, which represents time moving forward.
+    """
+
+    df = df.copy()
+    df["epoch"] = np.arange(len(df))
+    df["time_minutes"] = df["epoch"] * EPOCH_SECONDS / 60
+
+    fig = go.Figure()
+
+    feature_columns = ["delta_rel", "theta_rel", "alpha_rel", "beta_rel"]
+
+    for col in feature_columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df["time_minutes"],
+                y=df[col],
+                mode="lines",
+                name=col
+            )
+        )
+
+    fig.update_layout(
+        title="Relative EEG Band Power Across Sleep Epochs",
+        xaxis_title="Time (minutes)",
+        yaxis_title="Relative power",
+        hovermode="x unified",
+        width=1100,
+        height=600
+    )
+
+    fig.write_html("results/bandpower_epochs_interactive.html")
+    fig.show()
