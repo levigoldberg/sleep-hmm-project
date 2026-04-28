@@ -21,3 +21,5 @@ BANDS = {
     "alpha": (8, 12),  # Often associated with relaxed wakefulness
     "beta": (13, 30),  # Faster activity, often more wake-like
 }
+
+WELCH_SEGMENT_LENGTH = 4
