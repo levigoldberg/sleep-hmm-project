@@ -21,3 +21,10 @@ BANDS = {
     "alpha": (8, 12),  # Often associated with relaxed wakefulness
     "beta": (13, 30),  # Faster activity, often more wake-like
 }
+
+
+#training constants
+THRESHOLD = 1e-4
+ITERATIONS = 20
+D = len(BANDS)
+K = 5

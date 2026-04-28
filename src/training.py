@@ -1,7 +1,8 @@
 import numpy as np
 from hmm_inference import forward_backward
+import constants
 
-def initialize_training_params(K, D):
+def initialize_training_params():
     """
     Intializing the starting prob, transition matrix, means and variance -- to be changed later just a placeholder
     """
@@ -56,8 +57,6 @@ def m_step_update(Features, gamma, xi):
     Output: initial_prob, Transition, means, variances
     """
     T = len(Features) #num of epochs
-    D = 4 #num of features
-    K = 5 #num of hidden states
 
     # update starting probabilities
     initial_prob = []
@@ -159,8 +158,7 @@ def baum_welch_training_shell(Features):
     Output: initial_prob, Transition, means, variances, log_likelihoods (training progress)
     """
     T = len(Features)
-    K = 5
-    D = 4
+
 
     #initialize the training parametetrs
     initial_prob, Transition, means, variances = initialize_training_params(K, D)
@@ -168,7 +166,7 @@ def baum_welch_training_shell(Features):
     
     log_likelihoods = []
 
-    for iteration in range(20): #we can change this - max times it will run
+    for iteration in range(ITERATIONS): #we can change this - max times it will run
         
         #E Step:
         gamma, xi, log_likelihood = forward_backward(Features, Transition, means, variances, initial_prob) 
@@ -186,7 +184,7 @@ def baum_welch_training_shell(Features):
             change = abs(current - previous)
 
 
-            if change < 1e-4: #if the change is super small stop
+            if change < THRESHOLD: #if the change is super small stop
                 break
 
     return initial_prob, Transition, means, variances, log_likelihoods
