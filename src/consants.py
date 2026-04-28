@@ -1,3 +1,5 @@
+import numpy as np
+
 # EEG channel to extract.
 # Sleep-EDF contains two EEG channels: Fpz-Cz and Pz-Oz.
 # We start with Fpz-Cz because it is one of the main EEG channels provided
@@ -40,17 +42,7 @@ F = 4
 # these in an unsupervised way — the names are just for interpretation.
 STATE_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
-# Mean feature vector for each state, used to generate fake data and
-# initialize the emission model. Each row is [delta, theta, alpha, beta].
-# Values are based on known EEG patterns for each sleep stage.
-# Later, Baum-Welch will update these from real data.
-TRUE_MEANS = np.array([
-    [0.10, 0.15, 0.40, 0.35],   # Wake: high alpha and beta, low delta
-    [0.20, 0.45, 0.20, 0.15],   # N1: theta dominant
-    [0.35, 0.35, 0.15, 0.15],   # N2: theta and some delta
-    [0.65, 0.20, 0.10, 0.05],   # N3: delta dominant, deep sleep
-    [0.20, 0.40, 0.15, 0.25],   # REM: theta and beta, active dreaming
-])
+
 
 # Variance for each state and feature, used for the Gaussian emission model.
 # Currently all states share the same variance (0.02, std ~0.14), which gives
@@ -59,11 +51,7 @@ TRUE_MEANS = np.array([
 # Wake may be more variable.
 TRUE_VARS = np.full((K, F), 0.02)
 
-# Initial state distribution.
-# We start certain in Wake because real sleep recordings begin before
-# the person falls asleep. Later, we could try a uniform distribution
-# to see how sensitive the model is to this assumption.
-pi = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+
 
 # Transition matrix initialization.
 # Currently uniform — every transition equally likely. This is used as

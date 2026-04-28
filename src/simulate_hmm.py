@@ -1,5 +1,26 @@
 import numpy as np
 
+"""
+Constants:
+# Initial state distribution.
+# We start certain in Wake because real sleep recordings begin before
+# the person falls asleep. Later, we could try a uniform distribution
+# to see how sensitive the model is to this assumption.
+pi = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+
+# Mean feature vector for each state, used to generate fake data and
+# initialize the emission model. Each row is [delta, theta, alpha, beta].
+# Values are based on known EEG patterns for each sleep stage.
+# Later, Baum-Welch will update these from real data.
+TRUE_MEANS = np.array([
+    [0.10, 0.15, 0.40, 0.35],   # Wake: high alpha and beta, low delta
+    [0.20, 0.45, 0.20, 0.15],   # N1: theta dominant
+    [0.35, 0.35, 0.15, 0.15],   # N2: theta and some delta
+    [0.65, 0.20, 0.10, 0.05],   # N3: delta dominant, deep sleep
+    [0.20, 0.40, 0.15, 0.25],   # REM: theta and beta, active dreaming
+])
+"""
+
 from hmm_inference import (
     NUM_FEATURES,
     NUM_STATES,
