@@ -1,6 +1,6 @@
 import numpy as np
 from hmm_inference import forward_backward
-import constants
+from consants import K, D, THRESHOLD, ITERATIONS
 
 def initialize_training_params():
     """
