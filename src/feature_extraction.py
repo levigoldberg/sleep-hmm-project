@@ -186,10 +186,6 @@ def main():
         # Compute relative band-power features for this epoch.
         features = compute_bandpower(epoch_signal, sfreq)
 
-        # Store the epoch index.
-        # This lets us keep track of which time step each row corresponds to.
-        features["epoch"] = i
-
         # Add this epoch's features to the list of rows.
         rows.append(features)
 
