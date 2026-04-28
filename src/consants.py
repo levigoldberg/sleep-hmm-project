@@ -24,6 +24,7 @@ BANDS = {
     "beta": (13, 30),  # Faster activity, often more wake-like
 }
 
+<<<<<<< HEAD
 # Number of hidden states in the HMM.
 # Based on modern sleep staging conventions (AASM), sleep is divided into
 # 5 stages. We use 5 hidden states to match this standard. Later, we could
@@ -60,3 +61,12 @@ TRUE_VARS = np.full((K, F), 0.02)
 # sleep architecture Wake→N1→N2→N3→REM, from AASM transition research).
 A_init = np.full((K, K), 1/K)
 
+=======
+
+#training constants
+THRESHOLD = 1e-4
+ITERATIONS = 20
+D = len(BANDS)
+K = 5
+WELCH_SEGMENT_LENGTH = 4
+>>>>>>> 2ee9e5d8c062f5e407df8e5a0a559cb7c68828e9
