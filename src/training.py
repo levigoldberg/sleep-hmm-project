@@ -1,6 +1,6 @@
 import numpy as np
 from hmm_inference import forward_backward
-from consants import K, D, THRESHOLD, ITERATIONS
+from constants import K, D, THRESHOLD, ITERATIONS
 
 def initialize_training_params():
     """
@@ -161,7 +161,7 @@ def baum_welch_training_shell(Features):
 
 
     #initialize the training parametetrs
-    initial_prob, Transition, means, variances = initialize_training_params(K, D)
+    initial_prob, Transition, means, variances = initialize_training_params()
 
     
     log_likelihoods = []
