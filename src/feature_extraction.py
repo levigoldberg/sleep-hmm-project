@@ -8,7 +8,7 @@ from visualizations import (
     plot_smoothed_bandpower,
     plot_raw_epoch_window,
 )
-from consants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH
+from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH
 
 
 
