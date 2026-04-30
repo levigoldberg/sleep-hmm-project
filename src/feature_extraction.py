@@ -1,3 +1,4 @@
+import os
 import mne
 import numpy as np
 import pandas as pd
@@ -9,11 +10,6 @@ from visualizations import (
     plot_raw_epoch_window,
 )
 from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH
-
-
-
-
-
 
 
 def compute_bandpower(epoch_signal, sfreq):
@@ -97,6 +93,24 @@ def compute_bandpower(epoch_signal, sfreq):
     #   "beta_rel": 0.05
     # }
     return relative_powers
+
+
+def discover_psg_files(data_dir="data/sleep-cassette"):
+    """Discover PSG EDF files under a directory, excluding hypnogram EDFs."""
+    psg_paths = []
+    for root, _, files in os.walk(data_dir):
+        for filename in files:
+            lower = filename.lower()
+            if not lower.endswith(".edf"):
+                continue
+            if "hypnogram" in lower:
+                continue
+            if "psg" not in lower:
+                continue
+            psg_paths.append(os.path.join(root, filename))
+
+    psg_paths.sort()
+    return psg_paths
 
 
 def extract_features():

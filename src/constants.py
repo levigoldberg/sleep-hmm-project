@@ -1,11 +1,14 @@
 import numpy as np
 
+N_PARTICIPANTS = 2
+
 # EEG channel to extract.
 # Sleep-EDF contains two EEG channels: Fpz-Cz and Pz-Oz.
 # We start with Fpz-Cz because it is one of the main EEG channels provided
 # in the dataset. Later, we can repeat this for Pz-Oz or combine both.
 CHANNEL = "EEG Fpz-Cz"
 
+PSG_PATH = "data/SC4001E0-PSG.edf"
 
 # Sleep stages in Sleep-EDF are scored in 30-second windows.
 # We use the same 30-second window size so that each feature vector will
@@ -30,7 +33,7 @@ WELCH_SEGMENT_LENGTH = 4
 # 5 stages. We use 5 hidden states to match this standard. Later, we could
 # experiment with 4 states (merging N1 and N2) or 6 states to see if it
 # improves accuracy.
-K = 5
+K = 3
 
 # Number of features per epoch.
 # Each epoch is represented as a vector of 4 relative power values,
@@ -41,7 +44,7 @@ F = 4
 # Names of the hidden states, in order.
 # These correspond to the 5 standard sleep stages. The model learns
 # these in an unsupervised way — the names are just for interpretation.
-STATE_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STATE_NAMES = ["State 0", "State 1", "State 2"]
 
 
 # Variance for each state and feature, used for the Gaussian emission model.
@@ -57,11 +60,10 @@ TRUE_VARS = np.full((K, F), 0.02)
 # a starting point before Baum-Welch learns the real transitions from data.
 # Alternatives: random (np.random.dirichlet) or informed (based on known
 # sleep architecture Wake→N1→N2→N3→REM, from AASM transition research).
-A_init = np.full((K, K), 1/K)
+A_init = np.full((K, K), 1 / K)
 
 
 # training constants
 THRESHOLD = 1e-4
 ITERATIONS = 20
 D = len(BANDS)
-K = 5
