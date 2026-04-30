@@ -151,15 +151,12 @@ def m_step_update(Features, gamma, xi):
     return initial_prob, Transition, means, variances
 
 
-def baum_welch_training_shell(Features):
+def baum_welch_training_shell(feature_sequences):
     """
     Calls forward backward for E step, calls both M and E step
     Input: Features
     Output: initial_prob, Transition, means, variances, log_likelihoods (training progress)
     """
-    T = len(Features)
-
-
     #initialize the training parametetrs
     initial_prob, Transition, means, variances = initialize_training_params()
 
@@ -169,13 +166,16 @@ def baum_welch_training_shell(Features):
     for iteration in range(ITERATIONS): #we can change this - max times it will run
         
         #E Step:
-        gamma, xi, log_likelihood = forward_backward(Features, Transition, means, variances, initial_prob) 
-
-        #M Step
-        initial_prob, Transition, means, variances = m_step_update(Features, gamma, xi) 
+        total_log_likelihood = 0.0
+        for features in feature_sequences:
+            gamma, xi, log_likelihood = forward_backward(
+                features, Transition, means, variances, initial_prob
+            )
+            initial_prob, Transition, means, variances = m_step_update(features, gamma, xi)
+            total_log_likelihood += log_likelihood
 
         #store the score to see if we are improving
-        log_likelihoods.append(log_likelihood)
+        log_likelihoods.append(total_log_likelihood)
 
         #once 2 rounds or more have been done, check to see if the score is improving or not
         if iteration > 0:
