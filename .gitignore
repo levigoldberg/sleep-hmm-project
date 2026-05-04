@@ -3,12 +3,17 @@ __pycache__/
 *.pyc
 
 # Virtual environments
+myenv/
+.venv/
 venv/
 .env/
 
-# Data (important)
+# Data
 data/
 *.edf
+
+# Results
+results/
 
 # Mac
 .DS_Store
