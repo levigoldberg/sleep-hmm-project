@@ -1,3 +1,4 @@
+import os
 import mne
 import numpy as np
 import pandas as pd
@@ -8,12 +9,7 @@ from visualizations import (
     plot_smoothed_bandpower,
     plot_raw_epoch_window,
 )
-from consants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH
-
-
-
-
-
+from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH
 
 
 def compute_bandpower(epoch_signal, sfreq):
@@ -97,6 +93,24 @@ def compute_bandpower(epoch_signal, sfreq):
     #   "beta_rel": 0.05
     # }
     return relative_powers
+
+
+def discover_psg_files(data_dir="data/sleep-cassette"):
+    """Discover PSG EDF files under a directory, excluding hypnogram EDFs."""
+    psg_paths = []
+    for root, _, files in os.walk(data_dir):
+        for filename in files:
+            lower = filename.lower()
+            if not lower.endswith(".edf"):
+                continue
+            if "hypnogram" in lower:
+                continue
+            if "psg" not in lower:
+                continue
+            psg_paths.append(os.path.join(root, filename))
+
+    psg_paths.sort()
+    return psg_paths
 
 
 def extract_features():
@@ -283,3 +297,75 @@ def plot_bandpower_over_epochs(df):
 
     fig.write_html("results/bandpower_epochs_interactive.html")
     fig.show()
+def _extract_single_participant_features(psg_path):
+    """Extract per-epoch features for a single participant PSG file."""
+    raw = mne.io.read_raw_edf(psg_path, preload=True)
+    raw.pick([CHANNEL])
+    sfreq = int(raw.info["sfreq"])
+    data = raw.get_data()[0]
+    samples_per_epoch = EPOCH_SECONDS * sfreq
+    num_epochs = len(data) // samples_per_epoch
+
+    rows = []
+    for i in range(num_epochs):
+        start = i * samples_per_epoch
+        end = start + samples_per_epoch
+        epoch_signal = data[start:end]
+        rows.append(compute_bandpower(epoch_signal, sfreq))
+
+    df = pd.DataFrame(rows)
+    return df, data, sfreq
+
+
+def extract_features_by_participant(psg_paths=None, manifest_csv=None):
+    """
+    Extract features for multiple participants without concatenating time axes.
+
+    Args:
+        psg_paths:
+            Optional dict[str, str] mapping participant_id -> PSG path,
+            or list[str] of PSG paths (participant ids inferred from filename stem).
+        manifest_csv:
+            Optional CSV path containing `participant_id` and `psg_path` columns.
+
+    Returns:
+        participant_features:
+            dict[participant_id, pd.DataFrame] with one row per epoch in-order.
+        participant_ids:
+            list[str] aligned with sequence_list.
+        sequence_list:
+            list[np.ndarray] where each element is (T_i, D) for one participant.
+    """
+    if (psg_paths is None) == (manifest_csv is None):
+        raise ValueError("Provide exactly one of psg_paths or manifest_csv.")
+
+    if manifest_csv is not None:
+        manifest_df = pd.read_csv(manifest_csv)
+        required_columns = {"participant_id", "psg_path"}
+        missing = required_columns.difference(manifest_df.columns)
+        if missing:
+            raise ValueError(f"Manifest missing required columns: {sorted(missing)}")
+        items = [
+            (str(row["participant_id"]), str(row["psg_path"]))
+            for _, row in manifest_df.iterrows()
+        ]
+    elif isinstance(psg_paths, dict):
+        items = [(str(k), str(v)) for k, v in psg_paths.items()]
+    else:
+        items = []
+        for p in psg_paths:
+            path = str(p)
+            participant_id = path.split("/")[-1].split(".")[0]
+            items.append((participant_id, path))
+
+    participant_features = {}
+    participant_ids = []
+    sequence_list = []
+
+    for participant_id, psg_path in items:
+        df, _, _ = _extract_single_participant_features(psg_path)
+        participant_features[participant_id] = df
+        participant_ids.append(participant_id)
+        sequence_list.append(df.to_numpy())
+
+    return participant_features, participant_ids, sequence_list
