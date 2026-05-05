@@ -1,52 +1,79 @@
 import numpy as np
 from hmm_inference import forward_backward
-from constants import K, D, THRESHOLD, ITERATIONS
+from constants import K, D, THRESHOLD, ITERATIONS, FEATURE_EXTRACTION_METHOD
 
 
 def initialize_training_params():
     """
-    Intializing the starting prob, transition matrix, means and variance -- to be changed later just a placeholder
+    Initialize the HMM with biologically motivated guesses.
+
+    State order:
+        0 = Wake
+        1 = NREM
+        2 = REM
+
+    Feature order:
+        delta, theta, alpha, beta
+
     """
-    # Assuming starting prob is uniform, make inital prob matrix:
-    initial_prob = []
 
-    for k in range(K):
-        initial_prob.append(1 / K)
+    if K != 3:
+        raise ValueError(
+            "This biological initialization is currently written for K = 3."
+        )
 
-    initial_prob = np.array(initial_prob)
+    # Recordings usually begin while the participant is awake.
+    # Small nonzero values avoid impossible states.
+    initial_prob = np.array([0.90, 0.09, 0.01])
+    initial_prob = initial_prob / initial_prob.sum()
 
-    # starting assumption for transitions - every one has the same prob of transitioning
-    Transition = []
+    # Rows = current state, columns = next state.
+    #
+    # State 0 = Wake
+    # State 1 = NREM
+    # State 2 = REM
+    #
+    # Self transitions should be high.
+    Transition = np.array(
+        [
+            [0.92, 0.07, 0.01],  # Wake usually stays Wake or moves into NREM
+            [0.03, 0.94, 0.03],  # NREM is highly persistent
+            [0.08, 0.12, 0.80],  # REM is persistent but can return to Wake/NREM
+        ]
+    )
 
-    for i in range(K):
-        row = []
-        for j in range(K):
-            row.append(1 / K)
-        Transition.append(row)
+    if FEATURE_EXTRACTION_METHOD == "log":
+        # These are z-scored log-power guesses.
+        #
+        # Positive means "higher than that participant's average for this band."
+        # Negative means "lower than that participant's average for this band."
+        means = np.array(
+            [
+                [-0.4, -0.3, 0.9, 0.8],  # Wake: high alpha/beta, lower delta/theta
+                [0.9, 0.4, -0.5, -0.6],  # NREM: high delta/theta, lower alpha/beta
+                [-0.2, 0.8, -0.1, 0.4],  # REM: theta/mixed frequency, some beta
+            ]
+        )
 
-    Transition = np.array(Transition)
+        # Since log features are z-scored, variance around 1 is ok.
+        variances = np.full((K, D), 1.0)
 
-    # random means to start
-    means = []
+    elif FEATURE_EXTRACTION_METHOD == "relative":
+        # These are relative-power guesses.
+        # Each row roughly sums to 1.
+        means = np.array(
+            [
+                [0.12, 0.15, 0.38, 0.35],  # Wake
+                [0.55, 0.30, 0.10, 0.05],  # NREM
+                [0.18, 0.42, 0.15, 0.25],  # REM
+            ]
+        )
 
-    for k in range(K):
-        row = []
-        for d in range(D):
-            row.append(np.random.random())
-        means.append(row)
+        # Relative powers are smaller scale than z-scored log powers.
+        variances = np.full((K, D), 0.03)
 
-    means = np.array(means)
-
-    # spread at beginning - all ones
-    variances = []
-
-    for k in range(K):
-        row = []
-        for d in range(D):
-            row.append(1.0)
-        variances.append(row)
-
-    variances = np.array(variances)
+    else:
+        raise ValueError("FEATURE_EXTRACTION_METHOD must be 'log' or 'relative'.")
 
     return initial_prob, Transition, means, variances
 

@@ -1,13 +1,11 @@
 import numpy as np
 from scipy.special import logsumexp
-
+from constants import STATE_NAMES, FEATURE_NAMES
 
 # -----------------------------
 # Adjustable constants
 # -----------------------------
 
-STATE_NAMES = ["Wake", "N1", "N2", "N3", "REM"]
-FEATURE_NAMES = ["delta_rel", "theta_rel", "alpha_rel", "beta_rel"]
 
 NUM_STATES = len(STATE_NAMES)
 NUM_FEATURES = len(FEATURE_NAMES)
@@ -283,3 +281,72 @@ def state_indices_to_names(states, state_names=STATE_NAMES):
     """
 
     return [state_names[state] for state in states]
+
+
+def viterbi_decode(X, A, means, variances, pi):
+    """
+    Find the single most likely full sequence of hidden states.
+
+    This is adapted from the XHMM-style Viterbi code:
+    - dp_matrix stores the best path score ending in each state
+    - backtrack_matrix stores which previous state gave that best score
+    - the final path is recovered by walking backward
+
+    Difference from XHMM:
+    - each observation is a feature vector, not one number
+    - emissions come from gaussian_emission()
+    - log probabilities are used to avoid underflow
+    """
+
+    T = X.shape[0]  # number of epochs
+    K = A.shape[0]  # number of hidden states
+
+    # Convert probabilities to log probabilities.
+    log_A = np.log(A + EPSILON)
+    log_pi = np.log(pi + EPSILON)
+
+    # dp_matrix[state, time] = best log probability of a path
+    # that ends in this state at this time.
+    dp_matrix = np.full((K, T), -np.inf, dtype="float64")
+
+    # backtrack_matrix[state, time] = previous state that gave
+    # the best path into this state.
+    backtrack_matrix = np.full((K, T), 0, dtype=int)
+
+    # Initialize the first epoch.
+    first_emissions = gaussian_emission(X[0], means, variances)
+    log_first_emissions = np.log(first_emissions + EPSILON)
+
+    dp_matrix[:, 0] = log_pi + log_first_emissions
+
+    # Fill the DP matrix from left to right.
+    for t in range(1, T):
+        current_emissions = gaussian_emission(X[t], means, variances)
+        log_current_emissions = np.log(current_emissions + EPSILON)
+
+        for state in range(K):
+            best_val = -np.inf
+            best_state = 0
+
+            for prev_state in range(K):
+                candidate = dp_matrix[prev_state, t - 1] + log_A[prev_state, state]
+
+                if candidate > best_val:
+                    best_val = candidate
+                    best_state = prev_state
+
+            dp_matrix[state, t] = best_val + log_current_emissions[state]
+            backtrack_matrix[state, t] = best_state
+
+    # Start from the best final state.
+    hidden_states = np.zeros(T, dtype=int)
+    current_state = int(np.argmax(dp_matrix[:, T - 1]))
+    hidden_states[T - 1] = current_state
+
+    # Walk backward through the backtrack matrix.
+    for t in range(T - 1, 0, -1):
+        previous_state = backtrack_matrix[current_state, t]
+        hidden_states[t - 1] = previous_state
+        current_state = previous_state
+
+    return hidden_states

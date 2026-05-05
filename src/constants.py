@@ -1,69 +1,147 @@
-import numpy as np
+# -----------------------------
+# Project paths
+# -----------------------------
+
+DATA_DIR = "data/sleep-cassette"
+RESULTS_DIR = "results"
+PSG_PATH = "data/sleep-cassette"
+
+# -----------------------------
+# Feature names
+# -----------------------------
+
+# These must match the columns created in feature_extraction.py.
+FEATURE_NAMES = ["delta_rel", "theta_rel", "alpha_rel", "beta_rel"]
+
+# Number of features per epoch.
+F = len(FEATURE_NAMES)
+D = F
 
 N_PARTICIPANTS = 2
 
-# EEG channel to extract.
-# Sleep-EDF contains two EEG channels: Fpz-Cz and Pz-Oz.
-# We start with Fpz-Cz because it is one of the main EEG channels provided
-# in the dataset. Later, we can repeat this for Pz-Oz or combine both.
 CHANNEL = "EEG Fpz-Cz"
 
-PSG_PATH = "data/SC4001E0-PSG.edf"
-
-# Sleep stages in Sleep-EDF are scored in 30-second windows.
-# We use the same 30-second window size so that each feature vector will
-# correspond to one clinically annotated sleep-stage epoch.
 EPOCH_SECONDS = 30
 
-
-# Standard EEG frequency bands.
-# Each band is defined by a lower and upper frequency bound in Hz.
-# These bands summarize different types of brain rhythms that are relevant
-# for sleep staging.
 BANDS = {
-    "delta": (0.5, 4),  # Slow-wave activity, especially important for deep sleep
-    "theta": (4, 8),  # Common in lighter sleep stages
-    "alpha": (8, 12),  # Often associated with relaxed wakefulness
-    "beta": (13, 30),  # Faster activity, often more wake-like
+    "delta": (0.5, 4),
+    "theta": (4, 8),
+    "alpha": (8, 12),
+    "beta": (13, 30),
 }
+
 WELCH_SEGMENT_LENGTH = 4
 
-# Number of hidden states in the HMM.
-# Based on modern sleep staging conventions (AASM), sleep is divided into
-# 5 stages. We use 5 hidden states to match this standard. Later, we could
-# experiment with 4 states (merging N1 and N2) or 6 states to see if it
-# improves accuracy.
+# -----------------------------
+# HMM state setup
+# -----------------------------
+
+# Current model version:
+# K = 3 means the HMM learns 3 hidden states.
+# During validation, we compare these to Wake, NREM, and REM.
+#
+# Later, if we use K = 5, validation will compare against:
+# Wake, N1, N2, N3, REM.
 K = 3
 
-# Number of features per epoch.
-# Each epoch is represented as a vector of 4 relative power values,
-# one per standard EEG frequency band: delta, theta, alpha, beta.
-# This matches the output of Levi's feature extraction module.
-F = 4
-
-# Names of the hidden states, in order.
-# These correspond to the 5 standard sleep stages. The model learns
-# these in an unsupervised way — the names are just for interpretation.
-STATE_NAMES = ["State 0", "State 1", "State 2"]
+# These are the raw unsupervised HMM state names.
+# They do not automatically mean Wake, NREM, or REM.
+STATE_NAMES = [f"State {i}" for i in range(K)]
 
 
-# Variance for each state and feature, used for the Gaussian emission model.
-# Currently all states share the same variance (0.02, std ~0.14), which gives
-# realistic scatter without too much noise. Later, we could use different
-# variances per state — N3 is likely tighter (always high delta) while
-# Wake may be more variable.
-TRUE_VARS = np.full((K, F), 0.02)
+# -----------------------------
+# Validation labels
+# -----------------------------
+
+# Expert labels we compare against for each possible K.
+VALIDATION_CLASS_NAMES_BY_K = {
+    3: ["Wake", "NREM", "REM"],
+    5: ["Wake", "N1", "N2", "N3", "REM"],
+}
+
+# Sleep-EDF hypnogram labels mapped into our validation classes.
+# Stages 3 and 4 are combined because modern scoring combines them as N3.
+SLEEP_EDF_STAGE_MAP_BY_K = {
+    3: {
+        "Sleep stage W": 0,
+        "Sleep stage 1": 1,
+        "Sleep stage 2": 1,
+        "Sleep stage 3": 1,
+        "Sleep stage 4": 1,
+        "Sleep stage R": 2,
+    },
+    5: {
+        "Sleep stage W": 0,
+        "Sleep stage 1": 1,
+        "Sleep stage 2": 2,
+        "Sleep stage 3": 3,
+        "Sleep stage 4": 3,
+        "Sleep stage R": 4,
+    },
+}
+
+# These are selected based on the current K.
+VALIDATION_CLASS_NAMES = VALIDATION_CLASS_NAMES_BY_K[K]
+SLEEP_EDF_STAGE_MAP = SLEEP_EDF_STAGE_MAP_BY_K[K]
+
+# Labels like "Movement time" and "Sleep stage ?" should not be scored.
+INVALID_LABEL = -1
 
 
-# Transition matrix initialization.
-# Currently uniform — every transition equally likely. This is used as
-# a starting point before Baum-Welch learns the real transitions from data.
-# Alternatives: random (np.random.dirichlet) or informed (based on known
-# sleep architecture Wake→N1→N2→N3→REM, from AASM transition research).
-A_init = np.full((K, K), 1 / K)
+# -----------------------------
+# Model output paths
+# -----------------------------
+
+MODEL_INITIAL_PROB_PATH = "results/initial_prob.npy"
+MODEL_TRANSITION_PATH = "results/transition.npy"
+MODEL_MEANS_PATH = "results/means.npy"
+MODEL_VARIANCES_PATH = "results/variances.npy"
+
+# -----------------------------
+# Manual state labeling
+# -----------------------------
+
+# After training, inspect the learned Gaussian means and transition matrix.
+# Then manually decide which real sleep label each HMM state represents.
+#
+# For K = 3, valid labels are:
+# "Wake", "NREM", "REM"
+#
+# CHANGE AFTER INSPECTING TRAINED STATES
+HMM_STATE_TO_VALIDATION_LABEL = {
+    0: "NREM",
+    1: "Wake",
+    2: "REM",
+}
+# Options:
+# "posterior"
+# "viterbi"
+DECODING_METHOD = "posterior"
+
+# Options for feature extraction
+# "relative" - use relative power
+# "log" - use log of power
+FEATURE_EXTRACTION_METHOD = "relative"
+
+# -----------------------------
+# Train/test split
+# -----------------------------
+
+TRAIN_FRACTION = 0.7
+SPLIT_RANDOM_SEED = 42
 
 
-# training constants
+# -----------------------------
+# Numerical stability constants
+# -----------------------------
+
+EPSILON = 1e-300
+MIN_VARIANCE = 1e-6
+
+
+# -----------------------------
+# Training constants
+# -----------------------------
+
 THRESHOLD = 1e-4
 ITERATIONS = 20
-D = len(BANDS)
