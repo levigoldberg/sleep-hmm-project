@@ -3,13 +3,29 @@ import mne
 import numpy as np
 import pandas as pd
 from scipy.signal import welch
-import plotly.graph_objects as go
-from visualizations import (
-    plot_feature_heatmap,
-    plot_smoothed_bandpower,
-    plot_raw_epoch_window,
-)
-from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH
+from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH, FEATURE_EXTRACTION_METHOD
+
+
+def zscore_features(df):
+    """
+    Z-score each feature column within one participant (only if log scale is used).
+
+    This keeps each participant's feature sequence the same length,
+    but puts all feature columns on a comparable scale.
+    """
+
+    df = df.copy()
+
+    for col in df.columns:
+        mean = df[col].mean()
+        std = df[col].std()
+
+        if std == 0:
+            df[col] = 0
+        else:
+            df[col] = (df[col] - mean) / std
+
+    return df
 
 
 def compute_bandpower(epoch_signal, sfreq):
@@ -26,8 +42,8 @@ def compute_bandpower(epoch_signal, sfreq):
             For Sleep-EDF EEG, this is 100 Hz.
 
     Returns:
-        relative_powers:
-            A dictionary containing the relative power in each EEG band.
+        features:
+            A dictionary containing the computed features for the epoch.
             These values become the observation vector for one HMM time step.
     """
 
@@ -78,11 +94,17 @@ def compute_bandpower(epoch_signal, sfreq):
     # This makes each feature a proportion rather than a raw power value.
     # Relative power is useful because it reduces the effect of overall signal
     # amplitude differences between recordings, subjects, or channels.
-    # TODO:
-    relative_powers = {
-        f"{band}_rel": power / total_power
-        for band, power in band_powers.items()
-    }
+
+    if FEATURE_EXTRACTION_METHOD == 'log':
+        features = {
+            f"{band}_log_power": np.log10(power + 1e-12)
+            for band, power in band_powers.items()
+        }
+    elif FEATURE_EXTRACTION_METHOD == 'relative':
+        features = {
+            f"{band}_rel": power / total_power
+            for band, power in band_powers.items()
+        }
 
     # Return one feature vector for this epoch.
     # Example:
@@ -92,7 +114,7 @@ def compute_bandpower(epoch_signal, sfreq):
     #   "alpha_rel": 0.10,
     #   "beta_rel": 0.05
     # }
-    return relative_powers
+    return features
 
 
 def discover_psg_files(data_dir="data/sleep-cassette"):
@@ -113,191 +135,8 @@ def discover_psg_files(data_dir="data/sleep-cassette"):
     return psg_paths
 
 
-def extract_features():
-    """
-    Main feature extraction pipeline.
 
-    This function:
-    1. Loads one Sleep-EDF PSG file.
-    2. Selects one EEG channel.
-    3. Splits the signal into 30-second epochs.
-    4. Computes relative band-power features for each epoch.
-    5. Saves the resulting feature table as a CSV file.
-    """
-
-    # Load the raw EDF file.
-    #
-    # preload=True loads the signal data into memory immediately.
-    # This is fine for one file and makes later operations faster/easier.
-    raw = mne.io.read_raw_edf(PSG_PATH, preload=True)
-
-    # Print all channel names in the file.
-    # This is useful for checking the exact channel names available in the EDF.
-    # The channel name must match exactly when selecting it.
-    print(raw.ch_names)
-
-    # Keep only the EEG channel we want to analyze.
-    # This simplifies the data so we are working with one signal.
-    raw.pick([CHANNEL])
-
-    # Get the sampling frequency.
-    # If sfreq = 100, this means the EEG has 100 samples per second.
-    sfreq = int(raw.info["sfreq"])
-
-    # Extract the actual EEG signal values.
-    #
-    # raw.get_data() returns a 2D array: channels x samples.
-    # Since we selected only one channel, [0] gives the one EEG time series.
-    data = raw.get_data()[0]
-
-    # Convert epoch length from seconds into number of samples.
-    #
-    # Example:
-    # 30 seconds * 100 samples/second = 3000 samples per epoch.
-    samples_per_epoch = EPOCH_SECONDS * sfreq
-
-    # Calculate the number of complete 30-second epochs in the recording.
-    #
-    # Integer division // ignores any leftover partial epoch at the end.
-    # This is appropriate because the hypnogram labels correspond to complete
-    # 30-second epochs.
-    num_epochs = len(data) // samples_per_epoch
-
-    # Each item in rows will become one row in the final feature table.
-    rows = []
-
-    # Loop through each complete 30-second epoch.
-    for i in range(num_epochs):
-
-        # Compute the start and end sample indices for this epoch.
-        start = i * samples_per_epoch
-        end = start + samples_per_epoch
-
-        # Extract the EEG signal for this epoch only.
-        epoch_signal = data[start:end]
-
-        # Compute relative band-power features for this epoch.
-        features = compute_bandpower(epoch_signal, sfreq)
-
-        # Add this epoch's features to the list of rows.
-        rows.append(features)
-
-    # Convert the list of dictionaries into a pandas DataFrame.
-    # Each row is one 30-second epoch.
-    # Each column is one feature.
-    df = pd.DataFrame(rows)
-    plot_feature_heatmap(df, epoch_seconds=EPOCH_SECONDS, smooth_window=5)
-
-    plot_smoothed_bandpower(df, epoch_seconds=EPOCH_SECONDS, smooth_window=10)
-
-    plot_raw_epoch_window(
-        data=data,
-        sfreq=sfreq,
-        epoch_seconds=EPOCH_SECONDS,
-        start_epoch=0,
-        num_epochs_to_show=10,
-    )
-    # Print the first few rows to confirm that feature extraction worked.
-    print(df.head())
-
-    # Print the shape of the table.
-    # This tells us: number of epochs x number of columns.
-    print(df.shape)
-
-    # Save the feature table as a CSV file.
-    #
-    # This CSV can later be loaded by the HMM training script.
-    # Saving features separately means we do not need to reload and process
-    # the raw EDF file every time we train the model.
-    df.to_csv("results/features_one_subject.csv", index=False)
-    print("Sampling frequency:", sfreq, "Hz")
-    return df, data, sfreq
-
-def plot_raw_epochs(data, sfreq, samples_per_epoch, num_epochs, max_epochs=20):
-    """
-    Plot the raw EEG signal over time with vertical lines showing epoch boundaries.
-
-    max_epochs controls how many 30-second epochs are shown at once.
-    Showing the full night can be visually overwhelming, so we start with a chunk.
-    """
-
-    # Only plot the first max_epochs so the graph is readable
-    samples_to_plot = min(max_epochs * samples_per_epoch, len(data))
-
-    signal_chunk = data[:samples_to_plot]
-    time_seconds = np.arange(samples_to_plot) / sfreq
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scatter(
-            x=time_seconds,
-            y=signal_chunk,
-            mode="lines",
-            name="Raw EEG"
-        )
-    )
-
-    # Add vertical lines every 30 seconds
-    for epoch_idx in range(min(max_epochs, num_epochs) + 1):
-        x = epoch_idx * EPOCH_SECONDS
-        fig.add_vline(
-            x=x,
-            line_width=1,
-            line_dash="dash"
-        )
-
-    fig.update_layout(
-        title=f"Raw EEG Signal Split into {EPOCH_SECONDS}-Second Epochs",
-        xaxis_title="Time (seconds)",
-        yaxis_title="EEG voltage",
-        hovermode="x unified",
-        width=1100,
-        height=500
-    )
-
-    fig.write_html("results/raw_epochs_interactive.html")
-    fig.show()
-
-
-def plot_bandpower_over_epochs(df):
-    """
-    Plot relative EEG band powers over time.
-
-    Each row in df is one 30-second epoch.
-    The x-axis is epoch number, which represents time moving forward.
-    """
-
-    df = df.copy()
-    df["epoch"] = np.arange(len(df))
-    df["time_minutes"] = df["epoch"] * EPOCH_SECONDS / 60
-
-    fig = go.Figure()
-
-    feature_columns = ["delta_rel", "theta_rel", "alpha_rel", "beta_rel"]
-
-    for col in feature_columns:
-        fig.add_trace(
-            go.Scatter(
-                x=df["time_minutes"],
-                y=df[col],
-                mode="lines",
-                name=col
-            )
-        )
-
-    fig.update_layout(
-        title="Relative EEG Band Power Across Sleep Epochs",
-        xaxis_title="Time (minutes)",
-        yaxis_title="Relative power",
-        hovermode="x unified",
-        width=1100,
-        height=600
-    )
-
-    fig.write_html("results/bandpower_epochs_interactive.html")
-    fig.show()
-def _extract_single_participant_features(psg_path):
+def extract_single_participant_features(psg_path):
     """Extract per-epoch features for a single participant PSG file."""
     raw = mne.io.read_raw_edf(psg_path, preload=True)
     raw.pick([CHANNEL])
@@ -314,19 +153,19 @@ def _extract_single_participant_features(psg_path):
         rows.append(compute_bandpower(epoch_signal, sfreq))
 
     df = pd.DataFrame(rows)
+    if FEATURE_EXTRACTION_METHOD == "log":
+        df = zscore_features(df)
     return df, data, sfreq
 
 
-def extract_features_by_participant(psg_paths=None, manifest_csv=None):
+def extract_features_by_participant(psg_paths=None):
     """
-    Extract features for multiple participants without concatenating time axes.
+    Extract features for multiple participants without putting the time axes.
 
     Args:
         psg_paths:
             Optional dict[str, str] mapping participant_id -> PSG path,
             or list[str] of PSG paths (participant ids inferred from filename stem).
-        manifest_csv:
-            Optional CSV path containing `participant_id` and `psg_path` columns.
 
     Returns:
         participant_features:
@@ -336,20 +175,7 @@ def extract_features_by_participant(psg_paths=None, manifest_csv=None):
         sequence_list:
             list[np.ndarray] where each element is (T_i, D) for one participant.
     """
-    if (psg_paths is None) == (manifest_csv is None):
-        raise ValueError("Provide exactly one of psg_paths or manifest_csv.")
-
-    if manifest_csv is not None:
-        manifest_df = pd.read_csv(manifest_csv)
-        required_columns = {"participant_id", "psg_path"}
-        missing = required_columns.difference(manifest_df.columns)
-        if missing:
-            raise ValueError(f"Manifest missing required columns: {sorted(missing)}")
-        items = [
-            (str(row["participant_id"]), str(row["psg_path"]))
-            for _, row in manifest_df.iterrows()
-        ]
-    elif isinstance(psg_paths, dict):
+    if isinstance(psg_paths, dict):
         items = [(str(k), str(v)) for k, v in psg_paths.items()]
     else:
         items = []
@@ -363,7 +189,7 @@ def extract_features_by_participant(psg_paths=None, manifest_csv=None):
     sequence_list = []
 
     for participant_id, psg_path in items:
-        df, _, _ = _extract_single_participant_features(psg_path)
+        df, _, _ = extract_single_participant_features(psg_path)
         participant_features[participant_id] = df
         participant_ids.append(participant_id)
         sequence_list.append(df.to_numpy())
