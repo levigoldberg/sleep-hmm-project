@@ -143,5 +143,5 @@ MIN_VARIANCE = 1e-6
 # Training constants
 # -----------------------------
 
-THRESHOLD = 1e-4
+THRESHOLD = 1e-3
 ITERATIONS = 20
