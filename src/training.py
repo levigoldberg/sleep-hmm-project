@@ -42,21 +42,20 @@ def initialize_training_params():
         ]
     )
 
-    if FEATURE_EXTRACTION_METHOD == "log":
+    if FEATURE_EXTRACTION_METHOD == "log relative":
         # These are z-scored log-power guesses.
         #
         # Positive means "higher than that participant's average for this band."
         # Negative means "lower than that participant's average for this band."
         means = np.array(
-            [
-                [-0.4, -0.3, 0.9, 0.8],  # Wake: high alpha/beta, lower delta/theta
-                [0.9, 0.4, -0.5, -0.6],  # NREM: high delta/theta, lower alpha/beta
-                [-0.2, 0.8, -0.1, 0.4],  # REM: theta/mixed frequency, some beta
-            ]
-        )
+        [
+            np.log10(np.array([0.12, 0.15, 0.38, 0.35]) + 1e-12),  # Wake
+            np.log10(np.array([0.55, 0.30, 0.10, 0.05]) + 1e-12),  # NREM
+            np.log10(np.array([0.18, 0.42, 0.15, 0.25]) + 1e-12),  # REM
+        ]
+    )
 
-        # Since log features are z-scored, variance around 1 is ok.
-        variances = np.full((K, D), 1.0)
+        variances = np.full((K, D), 0.5)
 
     elif FEATURE_EXTRACTION_METHOD == "relative":
         # These are relative-power guesses.
