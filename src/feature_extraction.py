@@ -5,27 +5,6 @@ import pandas as pd
 from scipy.signal import welch
 from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH, FEATURE_EXTRACTION_METHOD
 
-# z scoring not used right now 
-def zscore_features(df):
-    """
-    Z-score each feature column within one participant (only if log scale is used).
-
-    This keeps each participant's feature sequence the same length,
-    but puts all feature columns on a comparable scale.
-    """
-
-    df = df.copy()
-
-    for col in df.columns:
-        mean = df[col].mean()
-        std = df[col].std()
-
-        if std == 0:
-            df[col] = 0
-        else:
-            df[col] = (df[col] - mean) / std
-
-    return df
 
 
 def compute_bandpower(epoch_signal, sfreq):
@@ -69,7 +48,7 @@ def compute_bandpower(epoch_signal, sfreq):
     for band_name, (low, high) in BANDS.items():
 
         # Select only the frequency values that fall within this band.
-        # Example: for delta, keep frequencies from 0.5 Hz up to but not
+        # Ex: for delta, keep frequencies from 0.5 Hz up to but not
         # including 4 Hz.
         band_mask = (freqs >= low) & (freqs < high)
 
@@ -119,7 +98,7 @@ def compute_bandpower(epoch_signal, sfreq):
 
 
 def discover_psg_files(data_dir="data/sleep-cassette"):
-    """Discover PSG EDF files under a directory, excluding hypnogram EDFs."""
+    """Discover PSG EDF files under a directory excluding EDFs (annotated files)."""
     psg_paths = []
     for root, _, files in os.walk(data_dir):
         for filename in files:

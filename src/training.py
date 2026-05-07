@@ -181,9 +181,6 @@ def m_step_update(Features, gamma, xi):
 def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
     """
     Run one M-step using all participants together.
-
-    Instead of updating parameters from one participant at a time,
-    this aggregates expected counts across every participant sequence.
     """
 
     # -----------------------------
@@ -274,7 +271,7 @@ def baum_welch_training_shell(feature_sequences):
     """
     Run Baum-Welch training across multiple participants.
 
-    Each participant is treated as a separate observation sequence.
+    Each participant is separate.
     The E-step runs forward-backward separately for each participant.
     The M-step aggregates expected counts across all participants.
     """
@@ -305,7 +302,7 @@ def baum_welch_training_shell(feature_sequences):
         )
 
         log_likelihoods.append(total_log_likelihood)
-
+        # print log liklihood to check for improvement 
         print(f"Iteration {iteration + 1}, log likelihood: {total_log_likelihood}")
 
         if iteration > 0:
