@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.signal import welch
 from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH, FEATURE_EXTRACTION_METHOD
 
-
+# z scoring not used right now 
 def zscore_features(df):
     """
     Z-score each feature column within one participant (only if log scale is used).
@@ -95,11 +95,12 @@ def compute_bandpower(epoch_signal, sfreq):
     # Relative power is useful because it reduces the effect of overall signal
     # amplitude differences between recordings, subjects, or channels.
 
-    if FEATURE_EXTRACTION_METHOD == 'log':
-        features = {
-            f"{band}_log_power": np.log10(power + 1e-12)
-            for band, power in band_powers.items()
-        }
+    if FEATURE_EXTRACTION_METHOD == "log relative":
+        features = {}
+
+        for band, power in band_powers.items():
+            relative_power = power / (total_power + 1e-12)
+            features[f"{band}_log_rel"] = np.log10(relative_power + 1e-12)
     elif FEATURE_EXTRACTION_METHOD == 'relative':
         features = {
             f"{band}_rel": power / total_power
@@ -153,8 +154,8 @@ def extract_single_participant_features(psg_path):
         rows.append(compute_bandpower(epoch_signal, sfreq))
 
     df = pd.DataFrame(rows)
-    if FEATURE_EXTRACTION_METHOD == "log":
-        df = zscore_features(df)
+    # if FEATURE_EXTRACTION_METHOD == "log":
+    #     df = zscore_features(df)
     return df, data, sfreq
 
 

@@ -109,8 +109,8 @@ MODEL_VARIANCES_PATH = "results/variances.npy"
 #
 # CHANGE AFTER INSPECTING TRAINED STATES
 HMM_STATE_TO_VALIDATION_LABEL = {
-    0: "NREM",
-    1: "Wake",
+    0: "Wake",
+    1: "NREM",
     2: "REM",
 }
 # Options:
@@ -120,7 +120,7 @@ DECODING_METHOD = "posterior"
 
 # Options for feature extraction
 # "relative" - use relative power
-# "log" - use log of power
+# "log relative" - use log of power
 FEATURE_EXTRACTION_METHOD = "relative"
 
 # -----------------------------
