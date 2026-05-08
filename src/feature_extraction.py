@@ -6,8 +6,7 @@ from scipy.signal import welch
 from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH, FEATURE_EXTRACTION_METHOD
 
 
-
-def compute_bandpower(epoch_signal, sfreq):
+def compute_bandpower(epoch_signal, sfreq, feature_method=None):
     """
     Compute relative EEG band power for one 30-second epoch.
 
@@ -73,8 +72,10 @@ def compute_bandpower(epoch_signal, sfreq):
     # This makes each feature a proportion rather than a raw power value.
     # Relative power is useful because it reduces the effect of overall signal
     # amplitude differences between recordings, subjects, or channels.
-
-    if FEATURE_EXTRACTION_METHOD == "log relative":
+    # Use the default from constants.py unless an experiment passes a method in.
+    if feature_method is None:
+        feature_method = FEATURE_EXTRACTION_METHOD
+    elif FEATURE_EXTRACTION_METHOD == "log relative":
         features = {}
 
         for band, power in band_powers.items():
@@ -115,8 +116,7 @@ def discover_psg_files(data_dir="data/sleep-cassette"):
     return psg_paths
 
 
-
-def extract_single_participant_features(psg_path):
+def extract_single_participant_features(psg_path, feature_method = None):
     """Extract per-epoch features for a single participant PSG file."""
     raw = mne.io.read_raw_edf(psg_path, preload=True)
     raw.pick([CHANNEL])
@@ -130,7 +130,7 @@ def extract_single_participant_features(psg_path):
         start = i * samples_per_epoch
         end = start + samples_per_epoch
         epoch_signal = data[start:end]
-        rows.append(compute_bandpower(epoch_signal, sfreq))
+        rows.append(compute_bandpower(epoch_signal, sfreq, feature_method))
 
     df = pd.DataFrame(rows)
     # if FEATURE_EXTRACTION_METHOD == "log":
@@ -138,7 +138,7 @@ def extract_single_participant_features(psg_path):
     return df, data, sfreq
 
 
-def extract_features_by_participant(psg_paths=None):
+def extract_features_by_participant(psg_paths=None, feature_method=None):
     """
     Extract features for multiple participants without putting the time axes.
 
@@ -169,7 +169,7 @@ def extract_features_by_participant(psg_paths=None):
     sequence_list = []
 
     for participant_id, psg_path in items:
-        df, _, _ = extract_single_participant_features(psg_path)
+        df, _, _ = extract_single_participant_features(psg_path, feature_method) #can ignore data, and sfreq
         participant_features[participant_id] = df
         participant_ids.append(participant_id)
         sequence_list.append(df.to_numpy())
