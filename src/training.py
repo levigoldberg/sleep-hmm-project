@@ -38,11 +38,12 @@ def initialize_training_params(
     #
     # Self transitions should be high.
     if transition_init == "informed":
+    # Based on epoch-to-epoch sleep-stage data from https://www.nature.com/articles/s42003-021-02912-6
         Transition = np.array(
             [
-                [0.92, 0.07, 0.01],
-                [0.03, 0.94, 0.03],
-                [0.08, 0.12, 0.80],
+                [0.945, 0.050, 0.005],  # Wake -> Wake, NREM, REM
+                [0.015, 0.980, 0.005],  # NREM -> Wake, NREM, REM
+                [0.005, 0.030, 0.965],  # REM  -> Wake, NREM, REM
             ]
         )
 
@@ -56,27 +57,30 @@ def initialize_training_params(
     else:
         raise ValueError("transition_init must be 'informed', 'uniform', or 'random'.")
 
+
     # Choose starting Gaussian means and variances.
     if emission_init == "informed":
+        # Feature order: delta, theta, alpha, beta.
+        # Values are normalized relative-power estimates based on published EEG band patterns.
+        relative_means = np.array(
+            [
+                [0.60, 0.13, 0.12, 0.15],  # Wake
+                [0.72, 0.12, 0.08, 0.08],  # NREM
+                [0.67, 0.15, 0.09, 0.09],  # REM
+            ]
+        )
+
         if feature_method == "relative":
-            means = np.array(
-                [
-                    [0.12, 0.15, 0.38, 0.35],
-                    [0.55, 0.30, 0.10, 0.05],
-                    [0.18, 0.42, 0.15, 0.25],
-                ]
-            )
-            variances = np.full((K, D), 0.03)
+            means = relative_means
+
+            # Broad starting variance for relative-power features.
+            variances = np.full((K, D), 0.05)
 
         elif feature_method == "log relative":
-            means = np.array(
-                [
-                    np.log10(np.array([0.12, 0.15, 0.38, 0.35]) + 1e-12),
-                    np.log10(np.array([0.55, 0.30, 0.10, 0.05]) + 1e-12),
-                    np.log10(np.array([0.18, 0.42, 0.15, 0.25]) + 1e-12),
-                ]
-            )
-            variances = np.full((K, D), 0.5)
+            means = np.log10(relative_means + 1e-12)
+
+            # Larger variance because log-relative features have a wider scale.
+            variances = np.full((K, D), 0.75)
 
         else:
             raise ValueError("feature_method must be 'relative' or 'log relative'.")
@@ -86,12 +90,12 @@ def initialize_training_params(
 
         if feature_method == "relative":
             means = rng.dirichlet(np.ones(D), size=K)
-            variances = np.full((K, D), 0.03)
+            variances = np.full((K, D), 0.05)
 
         elif feature_method == "log relative":
             relative_means = rng.dirichlet(np.ones(D), size=K)
             means = np.log10(relative_means + 1e-12)
-            variances = np.full((K, D), 0.5)
+            variances = np.full((K, D), 0.75)
 
         else:
             raise ValueError("feature_method must be 'relative' or 'log relative'.")

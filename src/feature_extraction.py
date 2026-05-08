@@ -75,18 +75,20 @@ def compute_bandpower(epoch_signal, sfreq, feature_method=None):
     # Use the default from constants.py unless an experiment passes a method in.
     if feature_method is None:
         feature_method = FEATURE_EXTRACTION_METHOD
-        
-    if FEATURE_EXTRACTION_METHOD == "log relative":
+
+    if feature_method == "log relative":
         features = {}
 
         for band, power in band_powers.items():
             relative_power = power / (total_power + 1e-12)
             features[f"{band}_log_rel"] = np.log10(relative_power + 1e-12)
-    elif FEATURE_EXTRACTION_METHOD == 'relative':
+    elif feature_method == "relative":
         features = {
             f"{band}_rel": power / total_power
             for band, power in band_powers.items()
         }
+    else:
+        raise ValueError("feature_method must be 'relative' or 'log relative'.")
 
     # Return one feature vector for this epoch.
     # Example:

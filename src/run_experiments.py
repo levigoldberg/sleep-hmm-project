@@ -12,7 +12,6 @@ Validation logic stays in validation.py.
 import os
 import time
 from datetime import datetime
-from xml.parsers.expat import model
 
 import numpy as np
 import pandas as pd
@@ -113,6 +112,10 @@ def infer_state_mapping_from_means(means):
     """
     Automatically map HMM states to Wake, NREM, and REM so we dont
     have to interrupt before every experiment to manually map and assign.
+    
+    - NREM: strongest delta activity
+    - Wake: strongest alpha/beta activity among remaining states
+    - REM: remaining low-delta mixed-frequency state
 
     Feature order:
         0 = delta
@@ -221,47 +224,48 @@ def run_single_experiment(
 
     # Save model inputs and outputs.
     feature_names = ["delta", "theta", "alpha", "beta"]
+    state_names = [f"State {i}" for i in range(len(model["means"]))]
 
     save_matrix(
         os.path.join(output_dir, "input_transition_matrix.csv"),
         model["input_transition"],
-        row_labels=VALIDATION_CLASS_NAMES,
-        col_labels=VALIDATION_CLASS_NAMES,
+        row_labels=state_names,
+        col_labels=state_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "output_transition_matrix.csv"),
         model["transition"],
-        row_labels=VALIDATION_CLASS_NAMES,
-        col_labels=VALIDATION_CLASS_NAMES,
+        row_labels=state_names,
+        col_labels=state_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "input_gaussian_means.csv"),
         model["input_means"],
-        row_labels=VALIDATION_CLASS_NAMES,
-        col_labels=feature_names,
+        row_labels=state_names,
+        col_labels=state_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "output_gaussian_means.csv"),
         model["means"],
-        row_labels=VALIDATION_CLASS_NAMES,
-        col_labels=feature_names,
+        row_labels=state_names,
+        col_labels=state_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "input_gaussian_variances.csv"),
         model["input_variances"],
-        row_labels=VALIDATION_CLASS_NAMES,
-        col_labels=feature_names,
+        row_labels=state_names,
+        col_labels=state_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "output_gaussian_variances.csv"),
         model["variances"],
-        row_labels=VALIDATION_CLASS_NAMES,
-        col_labels=feature_names,
+        row_labels=state_names,
+        col_labels=state_names,
     )
 
     # Save validation outputs.
