@@ -39,11 +39,13 @@ def initialize_training_params(
     # Self transitions should be high.
     if transition_init == "informed":
         Transition = np.array(
-            [
-                [0.92, 0.07, 0.01],
-                [0.03, 0.94, 0.03],
-                [0.08, 0.12, 0.80],
-            ]
+            Transition=np.array(
+                [
+                    [0.90, 0.05, 0.05],
+                    [0.05, 0.90, 0.05],
+                    [0.05, 0.05, 0.90],
+                ]
+            )
         )
 
     elif transition_init == "uniform":
@@ -60,23 +62,27 @@ def initialize_training_params(
     if emission_init == "informed":
         if feature_method == "relative":
             means = np.array(
-                [
-                    [0.12, 0.15, 0.38, 0.35],
-                    [0.55, 0.30, 0.10, 0.05],
-                    [0.18, 0.42, 0.15, 0.25],
-                ]
+                means=np.array(
+                    [
+                        [0.15, 0.20, 0.35, 0.30],  # Wake: higher alpha/beta
+                        [0.45, 0.30, 0.15, 0.10],  # NREM: higher delta/theta
+                        [0.15, 0.35, 0.25, 0.25],  # REM: mixed frequency, lower delta
+                    ]
+                )
             )
-            variances = np.full((K, D), 0.03)
-
+            variances = np.full((K, D), 0.05)
         elif feature_method == "log relative":
-            means = np.array(
-                [
-                    np.log10(np.array([0.12, 0.15, 0.38, 0.35]) + 1e-12),
-                    np.log10(np.array([0.55, 0.30, 0.10, 0.05]) + 1e-12),
-                    np.log10(np.array([0.18, 0.42, 0.15, 0.25]) + 1e-12),
-                ]
+            unlogged_means = np.array(
+                relative_means=np.array(
+                    [
+                        [0.15, 0.20, 0.35, 0.30],
+                        [0.45, 0.30, 0.15, 0.10],
+                        [0.15, 0.35, 0.25, 0.25],
+                    ]
+                )
             )
-            variances = np.full((K, D), 0.5)
+            means = np.log10(unlogged_means+ 1e-12)
+            variances = np.full((K, D), 0.75)
 
         else:
             raise ValueError("feature_method must be 'relative' or 'log relative'.")
