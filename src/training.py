@@ -1,27 +1,30 @@
 import numpy as np
 from hmm_inference import forward_backward
-from constants import K, D, THRESHOLD, ITERATIONS, FEATURE_EXTRACTION_METHOD
+from constants import (
+    K,
+    D,
+    THRESHOLD,
+    ITERATIONS,
+    FEATURE_EXTRACTION_METHOD,
+    SPLIT_RANDOM_SEED,
+)
 
 
-def initialize_training_params():
+def initialize_training_params(
+    transition_init="informed",
+    emission_init="informed",
+    feature_method=None,
+):
     """
-    Initialize the HMM with biologically motivated guesses.
-
-    State order:
-        0 = Wake
-        1 = NREM
-        2 = REM
-
-    Feature order:
-        delta, theta, alpha, beta
-
+    Initialize the HMM before BW training.
     """
 
     if K != 3:
         raise ValueError(
             "This biological initialization is currently written for K = 3."
         )
-
+    if feature_method is None:
+        feature_method = FEATURE_EXTRACTION_METHOD
     # Recordings usually begin while the participant is awake.
     # Small nonzero values avoid impossible states.
     initial_prob = np.array([0.90, 0.09, 0.01])
@@ -34,45 +37,67 @@ def initialize_training_params():
     # State 2 = REM
     #
     # Self transitions should be high.
-    Transition = np.array(
-        [
-            [0.92, 0.07, 0.01],  # Wake usually stays Wake or moves into NREM
-            [0.03, 0.94, 0.03],  # NREM is highly persistent
-            [0.08, 0.12, 0.80],  # REM is persistent but can return to Wake/NREM
-        ]
-    )
-
-    if FEATURE_EXTRACTION_METHOD == "log relative":
-        # These are z-scored log-power guesses.
-        #
-        # Positive means "higher than that participant's average for this band."
-        # Negative means "lower than that participant's average for this band."
-        means = np.array(
-        [
-            np.log10(np.array([0.12, 0.15, 0.38, 0.35]) + 1e-12),  # Wake
-            np.log10(np.array([0.55, 0.30, 0.10, 0.05]) + 1e-12),  # NREM
-            np.log10(np.array([0.18, 0.42, 0.15, 0.25]) + 1e-12),  # REM
-        ]
-    )
-
-        variances = np.full((K, D), 0.5)
-
-    elif FEATURE_EXTRACTION_METHOD == "relative":
-        # These are relative-power guesses.
-        # Each row roughly sums to 1.
-        means = np.array(
+    if transition_init == "informed":
+        Transition = np.array(
             [
-                [0.12, 0.15, 0.38, 0.35],  # Wake
-                [0.55, 0.30, 0.10, 0.05],  # NREM
-                [0.18, 0.42, 0.15, 0.25],  # REM
+                [0.92, 0.07, 0.01],
+                [0.03, 0.94, 0.03],
+                [0.08, 0.12, 0.80],
             ]
         )
 
-        # Relative powers are smaller scale than z-scored log powers.
-        variances = np.full((K, D), 0.03)
+    elif transition_init == "uniform":
+        Transition = np.full((K, K), 1.0 / K)
+
+    elif transition_init == "random":
+        rng = np.random.default_rng(SPLIT_RANDOM_SEED)
+        Transition = rng.dirichlet(np.ones(K), size=K)
 
     else:
-        raise ValueError("FEATURE_EXTRACTION_METHOD must be 'log' or 'relative'.")
+        raise ValueError("transition_init must be 'informed', 'uniform', or 'random'.")
+
+    # Choose starting Gaussian means and variances.
+    if emission_init == "informed":
+        if feature_method == "relative":
+            means = np.array(
+                [
+                    [0.12, 0.15, 0.38, 0.35],
+                    [0.55, 0.30, 0.10, 0.05],
+                    [0.18, 0.42, 0.15, 0.25],
+                ]
+            )
+            variances = np.full((K, D), 0.03)
+
+        elif feature_method == "log relative":
+            means = np.array(
+                [
+                    np.log10(np.array([0.12, 0.15, 0.38, 0.35]) + 1e-12),
+                    np.log10(np.array([0.55, 0.30, 0.10, 0.05]) + 1e-12),
+                    np.log10(np.array([0.18, 0.42, 0.15, 0.25]) + 1e-12),
+                ]
+            )
+            variances = np.full((K, D), 0.5)
+
+        else:
+            raise ValueError("feature_method must be 'relative' or 'log relative'.")
+
+    elif emission_init == "random":
+        rng = np.random.default_rng(SPLIT_RANDOM_SEED)
+
+        if feature_method == "relative":
+            means = rng.dirichlet(np.ones(D), size=K)
+            variances = np.full((K, D), 0.03)
+
+        elif feature_method == "log relative":
+            relative_means = rng.dirichlet(np.ones(D), size=K)
+            means = np.log10(relative_means + 1e-12)
+            variances = np.full((K, D), 0.5)
+
+        else:
+            raise ValueError("feature_method must be 'relative' or 'log relative'.")
+
+    else:
+        raise ValueError("emission_init must be 'informed' or 'random'.")
 
     return initial_prob, Transition, means, variances
 
@@ -267,16 +292,28 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
     return initial_prob, Transition, means, variances
 
 
-def baum_welch_training_shell(feature_sequences):
+def baum_welch_training_shell(
+    feature_sequences,
+    transition_init="informed",
+    emission_init="informed",
+    feature_method=None,
+    return_initial_params=False,
+):
     """
     Run Baum-Welch training across multiple participants.
-
-    Each participant is separate.
-    The E-step runs forward-backward separately for each participant.
-    The M-step aggregates expected counts across all participants.
     """
 
-    initial_prob, Transition, means, variances = initialize_training_params()
+    initial_prob, Transition, means, variances = initialize_training_params(
+        transition_init=transition_init,
+        emission_init=emission_init,
+        feature_method=feature_method,
+    )
+
+    # Save the starting parameters before Baum-Welch changes them.
+    input_initial_prob = initial_prob.copy()
+    input_transition = Transition.copy()
+    input_means = means.copy()
+    input_variances = variances.copy()
 
     log_likelihoods = []
 
@@ -286,25 +323,31 @@ def baum_welch_training_shell(feature_sequences):
         xis = []
         total_log_likelihood = 0.0
 
-        # E-step: run forward-backward separately for each participant
+        # E-step for each participant.
         for Features in feature_sequences:
             gamma, xi, log_likelihood = forward_backward(
-                Features, Transition, means, variances, initial_prob
+                Features,
+                Transition,
+                means,
+                variances,
+                initial_prob,
             )
 
             gammas.append(gamma)
             xis.append(xi)
             total_log_likelihood += log_likelihood
 
-        # M-step: update once using all participants together
+        # M-step across all participants.
         initial_prob, Transition, means, variances = m_step_update_multiple_sequences(
-            feature_sequences, gammas, xis
+            feature_sequences,
+            gammas,
+            xis,
         )
 
         log_likelihoods.append(total_log_likelihood)
-        # print log liklihood to check for improvement 
         print(f"Iteration {iteration + 1}, log likelihood: {total_log_likelihood}")
 
+        # Stop if log likelihood stops changing much.
         if iteration > 0:
             previous = log_likelihoods[iteration - 1]
             current = log_likelihoods[iteration]
@@ -312,5 +355,18 @@ def baum_welch_training_shell(feature_sequences):
 
             if change < THRESHOLD:
                 break
+
+    if return_initial_params:
+        return {
+            "initial_prob": initial_prob,
+            "transition": Transition,
+            "means": means,
+            "variances": variances,
+            "log_likelihoods": log_likelihoods,
+            "input_initial_prob": input_initial_prob,
+            "input_transition": input_transition,
+            "input_means": input_means,
+            "input_variances": input_variances,
+        }
 
     return initial_prob, Transition, means, variances, log_likelihoods
