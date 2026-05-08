@@ -244,28 +244,28 @@ def run_single_experiment(
         os.path.join(output_dir, "input_gaussian_means.csv"),
         model["input_means"],
         row_labels=state_names,
-        col_labels=state_names,
+        col_labels=feature_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "output_gaussian_means.csv"),
         model["means"],
         row_labels=state_names,
-        col_labels=state_names,
+        col_labels=feature_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "input_gaussian_variances.csv"),
         model["input_variances"],
         row_labels=state_names,
-        col_labels=state_names,
+        col_labels=feature_names,
     )
 
     save_matrix(
         os.path.join(output_dir, "output_gaussian_variances.csv"),
         model["variances"],
         row_labels=state_names,
-        col_labels=state_names,
+        col_labels=feature_names,
     )
 
     # Save validation outputs.
