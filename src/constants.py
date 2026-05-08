@@ -116,7 +116,7 @@ HMM_STATE_TO_VALIDATION_LABEL = {
 # Options:
 # "posterior"
 # "viterbi"
-DECODING_METHOD = "posterior"
+DECODING_METHOD = "viterbi"
 
 # Options for feature extraction
 # "relative" - use relative power
