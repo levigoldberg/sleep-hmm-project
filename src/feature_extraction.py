@@ -75,7 +75,8 @@ def compute_bandpower(epoch_signal, sfreq, feature_method=None):
     # Use the default from constants.py unless an experiment passes a method in.
     if feature_method is None:
         feature_method = FEATURE_EXTRACTION_METHOD
-    elif FEATURE_EXTRACTION_METHOD == "log relative":
+        
+    if FEATURE_EXTRACTION_METHOD == "log relative":
         features = {}
 
         for band, power in band_powers.items():

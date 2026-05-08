@@ -12,6 +12,7 @@ Validation logic stays in validation.py.
 import os
 import time
 from datetime import datetime
+from xml.parsers.expat import model
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,7 @@ from data_split import split_paths_by_participant
 from feature_extraction import discover_psg_files, extract_features_by_participant
 from training import baum_welch_training_shell
 from validation import validate_model
+import validation
 
 # One dictionary = one experiment.
 EXPERIMENTS = [
@@ -107,6 +109,43 @@ def save_participant_split(path, train_paths, validation_paths):
     pd.DataFrame(rows).to_csv(path, index=False)
 
 
+def infer_state_mapping_from_means(means):
+    """
+    Automatically map HMM states to Wake, NREM, and REM so we dont
+    have to interrupt before every experiment to manually map and assign.
+
+    Feature order:
+        0 = delta
+        1 = theta
+        2 = alpha
+        3 = beta
+    """
+
+    delta_col = 0
+    alpha_col = 2
+    beta_col = 3
+
+    # NREM usually has the strongest slow-wave delta activity.
+    nrem_state = int(np.argmax(means[:, delta_col]))
+
+    remaining_states = [s for s in range(len(means)) if s != nrem_state]
+
+    # Wake usually has more alpha/beta activity than REM or NREM.
+    wake_state = max(
+        remaining_states,
+        key=lambda s: means[s, alpha_col] + means[s, beta_col],
+    )
+
+    # The remaining state is treated as REM.
+    rem_state = [s for s in remaining_states if s != wake_state][0]
+
+    return {
+        wake_state: "Wake",
+        nrem_state: "NREM",
+        rem_state: "REM",
+    }
+
+
 def run_single_experiment(
     run_number, exp, train_paths, validation_paths, base_output_dir
 ):
@@ -156,6 +195,10 @@ def run_single_experiment(
         return_initial_params=True,
     )
 
+    # Automatically map learned HMM states before validation.
+    state_mapping = infer_state_mapping_from_means(model["means"])
+    validation.HMM_STATE_TO_VALIDATION_LABEL = state_mapping
+
     # Validate the trained model.
     metrics = validate_model(
         validation_paths=validation_paths,
@@ -166,6 +209,12 @@ def run_single_experiment(
         feature_method=feature_method,
         validation_sequences=validation_sequences,
         validation_participant_ids=validation_participant_ids,
+    )
+    pd.DataFrame(
+        [{"state": state, "label": label} for state, label in state_mapping.items()]
+    ).to_csv(
+        os.path.join(output_dir, "state_mapping.csv"),
+        index=False,
     )
 
     runtime_seconds = time.perf_counter() - start_time
@@ -245,6 +294,9 @@ def run_single_experiment(
         "final_log_likelihood": model["log_likelihoods"][-1],
         "runtime_seconds": runtime_seconds,
         "output_dir": output_dir,
+        "state_0_label": state_mapping[0],
+        "state_1_label": state_mapping[1],
+        "state_2_label": state_mapping[2],
     }
 
     # Add one accuracy column per class.
