@@ -19,7 +19,7 @@ sleep-hmm-project/
 │   └── run_experiments.py
 ├── requirements.txt
 └── README.md
-```
+````
 
 ## Setup
 
@@ -30,7 +30,6 @@ python3 -m venv myenv
 source myenv/bin/activate
 python -m pip install -r requirements.txt
 ```
-
 
 ## Data
 
@@ -47,39 +46,37 @@ The folder should contain both PSG files and matching hypnogram files:
 *-Hypnogram.edf
 ```
 
+## How to Run
 
-### Train the model
-
-```bash
-python src/main.py
-```
-
-This trains the HMM and saves model files in `results/`, including:
-
-```text
-initial_prob.npy
-transition.npy
-means.npy
-variances.npy
-log_likelihoods.csv
-train_validation_split.csv
-```
-
-### Validate the model
-
-```bash
-python src/validation.py
-```
-
-This loads the trained model, uses the saved validation split, compares predictions to the hypnogram labels, and saves validation results in `results/`.
-
-### Run experiments
+All training and validation should be run through:
 
 ```bash
 python src/run_experiments.py
 ```
 
-This runs multiple models specified in run_experiments.py and the outputs under `results/experiments/`.
+This script will:
+
+1. Find the PSG files in `data/sleep-cassette/`.
+2. Split participants into training and validation sets.
+3. Extract EEG bandpower features.
+4. Train the HMM.
+5. Automatically map the learned HMM states to Wake, NREM, and REM.
+6. Validate predictions against the Sleep-EDF hypnogram labels.
+7. Save results under `results/experiments/`.
+
+## Outputs
+
+Experiment results are saved in:
+
+```text
+results/experiments/
+```
+
+A summary file is also saved:
+
+```text
+experiment_summary.csv
+```
 
 ## Main Settings
 
@@ -87,4 +84,10 @@ Most settings are edited in:
 
 ```text
 src/constants.py
+```
+
+The experiment specific settings are in:
+
+```text
+src/run_experiments.py
 ```

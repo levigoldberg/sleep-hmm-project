@@ -1,17 +1,6 @@
 import numpy as np
 from scipy.special import logsumexp
-from constants import STATE_NAMES, FEATURE_NAMES
-
-# -----------------------------
-# Adjustable constants
-# -----------------------------
-
-
-NUM_STATES = len(STATE_NAMES)
-NUM_FEATURES = len(FEATURE_NAMES)
-
-EPSILON = 1e-300
-MIN_VARIANCE = 1e-6
+from constants import STATE_NAMES, EPSILON, MIN_VARIANCE
 
 
 # -----------------------------
