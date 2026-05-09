@@ -68,9 +68,7 @@ This script will:
 
 Experiment results are saved in:
 
-```text
-results/experiments/
-```
+This loads the trained model, uses same pariticpant split, compares predictions to the annotated hypnogram labels, and saves validation results in `results/`.
 
 A summary file is also saved:
 
