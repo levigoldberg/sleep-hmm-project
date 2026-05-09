@@ -3,7 +3,7 @@ import mne
 import numpy as np
 import pandas as pd
 from scipy.signal import welch
-from constants import PSG_PATH, CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH, FEATURE_EXTRACTION_METHOD
+from constants import CHANNEL, EPOCH_SECONDS, BANDS, WELCH_SEGMENT_LENGTH, FEATURE_EXTRACTION_METHOD
 
 
 def compute_bandpower(epoch_signal, sfreq, feature_method=None):
@@ -29,50 +29,33 @@ def compute_bandpower(epoch_signal, sfreq, feature_method=None):
     #
     # Welch's method is a practical FFT-based method. Instead of applying one
     # Fourier Transform to the entire 30-second epoch, it breaks the epoch into
-    # smaller segments, computes spectra, and averages them. This gives a more
-    # stable estimate of power across frequencies.
+    # smaller segments, computes the bands, and averages them.
     #
     # nperseg=sfreq * 4 means each Welch segment is 4 seconds long.
     # If sfreq = 100 Hz, then nperseg = 400 samples
-    # A 4-second segment gives frequency resolution of about 0.25 Hz.
-    # We can treat WELCH_SEGMENT_LENGTH as a tunable parameter and compare
-    # different window lengths based on downstream HMM performance
 
     freqs, psd = welch(epoch_signal, fs=sfreq, nperseg=sfreq * WELCH_SEGMENT_LENGTH)
 
-    # This dictionary will store the absolute power in each band first.
     band_powers = {}
 
     # Loop through each EEG frequency band.
     for band_name, (low, high) in BANDS.items():
 
-        # Select only the frequency values that fall within this band.
-        # Ex: for delta, keep frequencies from 0.5 Hz up to but not
-        # including 4 Hz.
+        # Select frequency values that fall within  band.
         band_mask = (freqs >= low) & (freqs < high)
 
-        # Compute the area under the PSD curve within this frequency band.
+        # Compute area under  curve within this frequency band.
         # This area represents the total power in that band.
         #
-        # np.trapezoid performs numerical integration using the trapezoid rule.
+        # Finding the area under curve using trapezoids
         band_power = np.trapezoid(psd[band_mask], freqs[band_mask])
 
-        # Store the absolute band power.
         band_powers[band_name] = band_power
 
-    # Compute the total power across the selected bands.
-    # This is used to convert absolute power into relative power.
     total_power = sum(band_powers.values())
 
     # Convert absolute band power into relative band power.
-    #
-    # Example:
-    # delta_rel = delta_power / total_power
-    #
-    # This makes each feature a proportion rather than a raw power value.
-    # Relative power is useful because it reduces the effect of overall signal
-    # amplitude differences between recordings, subjects, or channels.
-    # Use the default from constants.py unless an experiment passes a method in.
+
     if feature_method is None:
         feature_method = FEATURE_EXTRACTION_METHOD
 
@@ -136,8 +119,6 @@ def extract_single_participant_features(psg_path, feature_method = None):
         rows.append(compute_bandpower(epoch_signal, sfreq, feature_method))
 
     df = pd.DataFrame(rows)
-    # if FEATURE_EXTRACTION_METHOD == "log":
-    #     df = zscore_features(df)
     return df, data, sfreq
 
 
