@@ -56,6 +56,8 @@ python src/main.py
 
 This trains the HMM and saves model files in `results/`
 
+The user then must manually label the states based on the outputted results in `src/constants.py`
+
 ### Validate the model
 
 ```bash
