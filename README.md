@@ -54,16 +54,7 @@ The folder should contain both PSG files and matching hypnogram files:
 python src/main.py
 ```
 
-This trains the HMM and saves model files in `results/`, including:
-
-```text
-initial_prob.npy
-transition.npy
-means.npy
-variances.npy
-log_likelihoods.csv
-train_validation_split.csv
-```
+This trains the HMM and saves model files in `results/`
 
 ### Validate the model
 
@@ -71,7 +62,7 @@ train_validation_split.csv
 python src/validation.py
 ```
 
-This loads the trained model, uses the saved validation split, compares predictions to the hypnogram labels, and saves validation results in `results/`.
+This loads the trained model, uses same pariticpant split, compares predictions to the annotated hypnogram labels, and saves validation results in `results/`.
 
 ### Run experiments
 
