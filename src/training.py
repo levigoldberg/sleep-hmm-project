@@ -2,7 +2,7 @@ import numpy as np
 from hmm_inference import forward_backward
 from constants import (
     K,
-    D,
+    F,
     THRESHOLD,
     ITERATIONS,
     FEATURE_EXTRACTION_METHOD,
@@ -160,7 +160,7 @@ def m_step_update(Features, gamma, xi):
             weight_sum += gamma[t][k]
 
         # go through each feature and compute a weighted total
-        for d in range(D):
+        for d in range(F):
             total = 0
 
             for t in range(T):
@@ -184,7 +184,7 @@ def m_step_update(Features, gamma, xi):
         for t in range(T):
             weight_sum += gamma[t][k]
 
-        for d in range(D):
+        for d in range(F):
             total = 0
 
             # difference = observed / means ^2
@@ -258,13 +258,13 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
             for k in range(K):
                 state_weights[k] += gamma[t][k]
 
-                for d in range(D):
+                for d in range(F):
                     weighted_feature_sums[k][d] += gamma[t][k] * Features[t][d]
 
     means = np.zeros((K, D))
 
     for k in range(K):
-        for d in range(D):
+        for d in range(F):
             means[k][d] = weighted_feature_sums[k][d] / (state_weights[k] + 1e-12)
 
     # -----------------------------
@@ -278,14 +278,14 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
 
         for t in range(T):
             for k in range(K):
-                for d in range(D):
+                for d in range(F):
                     difference = Features[t][d] - means[k][d]
                     weighted_variance_sums[k][d] += gamma[t][k] * (difference**2)
 
     variances = np.zeros((K, D))
 
     for k in range(K):
-        for d in range(D):
+        for d in range(F):
             variance = weighted_variance_sums[k][d] / (state_weights[k] + 1e-12)
 
             if variance < 1e-6:

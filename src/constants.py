@@ -15,9 +15,6 @@ FEATURE_NAMES = ["delta_rel", "theta_rel", "alpha_rel", "beta_rel"]
 
 # Number of features per epoch.
 F = len(FEATURE_NAMES)
-D = F
-
-N_PARTICIPANTS = 2
 
 CHANNEL = "EEG Fpz-Cz"
 
@@ -39,50 +36,12 @@ WELCH_SEGMENT_LENGTH = 4
 # Current model version:
 # K = 3 means the HMM learns 3 hidden states.
 # During validation, we compare these to Wake, NREM, and REM.
-#
-# Later, if we use K = 5, validation will compare against:
-# Wake, N1, N2, N3, REM.
+
 K = 3
 
 # These are the raw unsupervised HMM state names.
 # They do not automatically mean Wake, NREM, or REM.
-STATE_NAMES = [f"State {i}" for i in range(K)]
-
-
-# -----------------------------
-# Validation labels
-# -----------------------------
-
-# Expert labels we compare against for each possible K.
-VALIDATION_CLASS_NAMES_BY_K = {
-    3: ["Wake", "NREM", "REM"],
-    5: ["Wake", "N1", "N2", "N3", "REM"],
-}
-
-# Sleep-EDF hypnogram labels mapped into our validation classes.
-# Stages 3 and 4 are combined because modern scoring combines them as N3.
-SLEEP_EDF_STAGE_MAP_BY_K = {
-    3: {
-        "Sleep stage W": 0,
-        "Sleep stage 1": 1,
-        "Sleep stage 2": 1,
-        "Sleep stage 3": 1,
-        "Sleep stage 4": 1,
-        "Sleep stage R": 2,
-    },
-    5: {
-        "Sleep stage W": 0,
-        "Sleep stage 1": 1,
-        "Sleep stage 2": 2,
-        "Sleep stage 3": 3,
-        "Sleep stage 4": 3,
-        "Sleep stage R": 4,
-    },
-}
-
-# These are selected based on the current K.
-VALIDATION_CLASS_NAMES = VALIDATION_CLASS_NAMES_BY_K[K]
-SLEEP_EDF_STAGE_MAP = SLEEP_EDF_STAGE_MAP_BY_K[K]
+STATE_NAMES = ["State 0", "State 1", "State 2"]
 
 # Labels like "Movement time" and "Sleep stage ?" should not be scored.
 INVALID_LABEL = -1
@@ -112,6 +71,17 @@ HMM_STATE_TO_VALIDATION_LABEL = {
     0: "Wake",
     1: "NREM",
     2: "REM",
+}
+
+VALIDATION_CLASS_NAMES = ["Wake", "NREM", "REM"]
+
+SLEEP_EDF_STAGE_MAP = {
+    "Sleep stage W": 0,
+    "Sleep stage 1": 1,
+    "Sleep stage 2": 1,
+    "Sleep stage 3": 1,
+    "Sleep stage 4": 1,
+    "Sleep stage R": 2,
 }
 # Options:
 # "posterior"
