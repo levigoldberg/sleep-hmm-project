@@ -84,7 +84,7 @@ def compute_bandpower(epoch_signal, sfreq, feature_method=None):
             features[f"{band}_log_rel"] = np.log10(relative_power + 1e-12)
     elif feature_method == "relative":
         features = {
-            f"{band}_rel": power / total_power
+            f"{band}_rel": power / (total_power + 1e-12)
             for band, power in band_powers.items()
         }
     else:
