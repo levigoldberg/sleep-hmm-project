@@ -74,13 +74,13 @@ def initialize_training_params(
             means = relative_means
 
             # Broad starting variance for relative-power features.
-            variances = np.full((K, D), 0.05)
+            variances = np.full((K, F), 0.05)
 
         elif feature_method == "log relative":
             means = np.log10(relative_means + 1e-12)
 
             # Larger variance because log-relative features have a wider scale.
-            variances = np.full((K, D), 0.75)
+            variances = np.full((K, F), 0.75)
 
         else:
             raise ValueError("feature_method must be 'relative' or 'log relative'.")
@@ -90,12 +90,12 @@ def initialize_training_params(
 
         if feature_method == "relative":
             means = rng.dirichlet(np.ones(D), size=K)
-            variances = np.full((K, D), 0.05)
+            variances = np.full((K, F), 0.05)
 
         elif feature_method == "log relative":
             relative_means = rng.dirichlet(np.ones(D), size=K)
             means = np.log10(relative_means + 1e-12)
-            variances = np.full((K, D), 0.75)
+            variances = np.full((K, F), 0.75)
 
         else:
             raise ValueError("feature_method must be 'relative' or 'log relative'.")
@@ -249,7 +249,7 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
     # -----------------------------
 
     state_weights = np.zeros(K)
-    weighted_feature_sums = np.zeros((K, D))
+    weighted_feature_sums = np.zeros((K, F))
 
     for Features, gamma in zip(feature_sequences, gammas):
         T = len(Features)
@@ -261,7 +261,7 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
                 for d in range(F):
                     weighted_feature_sums[k][d] += gamma[t][k] * Features[t][d]
 
-    means = np.zeros((K, D))
+    means = np.zeros((K, F))
 
     for k in range(K):
         for d in range(F):
@@ -271,7 +271,7 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
     # Update Gaussian variances
     # -----------------------------
 
-    weighted_variance_sums = np.zeros((K, D))
+    weighted_variance_sums = np.zeros((K, F))
 
     for Features, gamma in zip(feature_sequences, gammas):
         T = len(Features)
@@ -282,7 +282,7 @@ def m_step_update_multiple_sequences(feature_sequences, gammas, xis):
                     difference = Features[t][d] - means[k][d]
                     weighted_variance_sums[k][d] += gamma[t][k] * (difference**2)
 
-    variances = np.zeros((K, D))
+    variances = np.zeros((K,F))
 
     for k in range(K):
         for d in range(F):
